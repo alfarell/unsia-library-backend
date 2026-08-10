@@ -17,6 +17,8 @@ npm run dev
 
 API tersedia pada `http://localhost:3000/api/v1`. Endpoint awal yang tersedia adalah `GET /health`.
 
+Atur `JWT_SECRET` dengan nilai acak minimal 32 karakter sebelum menjalankan server. Endpoint autentikasi tersedia di `/api/auth`.
+
 ## Verifikasi
 
 ```bash
