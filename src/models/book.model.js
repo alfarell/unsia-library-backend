@@ -2,6 +2,11 @@ import mongoose from 'mongoose'
 
 const bookSchema = new mongoose.Schema(
   {
+    activeLoans: {
+      default: 0,
+      min: 0,
+      type: Number,
+    },
     title: {
       maxlength: 200,
       minlength: 1,
