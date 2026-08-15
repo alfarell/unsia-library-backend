@@ -29,6 +29,7 @@ const updateBookSchema = z
   })
 
 const toPublicBook = (book) => ({
+  activeLoans: book.activeLoans,
   author: book.author,
   category: book.category,
   createdAt: book.createdAt,

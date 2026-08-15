@@ -56,6 +56,7 @@ describe('book endpoints', () => {
 
   it('lists books with populated audit fields', async () => {
     const book = {
+      activeLoans: 0,
       author: 'Jane Doe',
       category: 'Fiction',
       createdAt: '2026-08-15T10:00:00.000Z',
@@ -87,6 +88,7 @@ describe('book endpoints', () => {
 
   it('creates a book with audit fields and default totalCopies', async () => {
     const book = {
+      activeLoans: 0,
       author: 'Jane Doe',
       category: undefined,
       createdAt: '2026-08-15T10:00:00.000Z',
@@ -154,6 +156,7 @@ describe('book endpoints', () => {
 
   it('updates only the sent fields and sets updatedBy', async () => {
     const book = {
+      activeLoans: 0,
       author: 'Jane Doe',
       category: undefined,
       createdAt: '2026-08-15T10:00:00.000Z',
@@ -189,6 +192,7 @@ describe('book endpoints', () => {
     expect(book.author).toBe('Jane Doe')
     expect(book.totalCopies).toBe(1)
     expect(response.body.data.book).toEqual({
+      activeLoans: 0,
       author: 'Jane Doe',
       category: undefined,
       createdAt: '2026-08-15T10:00:00.000Z',
