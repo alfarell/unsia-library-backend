@@ -4,6 +4,7 @@ import { Book } from '../models/book.model.js'
 import { Loan } from '../models/loan.model.js'
 import { Member } from '../models/member.model.js'
 import { createHttpError } from '../utils/http-error.js'
+import { createHistory } from '../utils/create-history.js'
 
 const objectIdSchema = z
   .string()
@@ -152,6 +153,15 @@ export const createLoan = async (request, response) => {
     updatedBy: request.user.id,
   })
 
+  const bookTitles = books.map((b) => b.title).join(', ')
+  await createHistory(
+    'loan',
+    'create',
+    `Meminjam buku: ${bookTitles}`,
+    `Borrowed books: ${bookTitles}`,
+    request.user.id,
+  )
+
   await populateLoan(loan)
 
   return response.status(201).json({
@@ -201,6 +211,15 @@ export const returnLoan = async (request, response) => {
   }
 
   await populateLoan(loan)
+
+  const bookTitles = loan.books.map((b) => b.title).join(', ')
+  await createHistory(
+    'loan',
+    'return',
+    `Mengembalikan buku: ${bookTitles}`,
+    `Returned books: ${bookTitles}`,
+    request.user.id,
+  )
 
   return response.status(200).json({
     data: {

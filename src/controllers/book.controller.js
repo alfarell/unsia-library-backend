@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import { z } from 'zod'
 import { Book } from '../models/book.model.js'
 import { createHttpError } from '../utils/http-error.js'
+import { createHistory } from '../utils/create-history.js'
 
 const createBookSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -84,6 +85,14 @@ export const createBook = async (request, response) => {
       updatedBy: request.user.id,
     })
 
+    await createHistory(
+      'book',
+      'create',
+      `Menambah buku "${book.title}"`,
+      `Added book "${book.title}"`,
+      request.user.id,
+    )
+
     await book.populate('createdBy updatedBy', 'name')
 
     return response.status(201).json({
@@ -112,6 +121,15 @@ export const updateBook = async (request, response) => {
   try {
     Object.assign(book, bookData, { updatedBy: request.user.id })
     await book.save()
+
+    await createHistory(
+      'book',
+      'update',
+      `Memperbarui buku "${book.title}"`,
+      `Updated book "${book.title}"`,
+      request.user.id,
+    )
+
     await book.populate('createdBy updatedBy', 'name')
 
     return response.status(200).json({
@@ -128,6 +146,20 @@ export const deleteBook = async (request, response) => {
   if (!mongoose.isValidObjectId(request.params.id)) {
     throw bookNotFoundError()
   }
+
+  const book = await Book.findById(request.params.id)
+
+  if (!book) {
+    throw bookNotFoundError()
+  }
+
+  await createHistory(
+    'book',
+    'delete',
+    `Menghapus buku "${book.title}"`,
+    `Deleted book "${book.title}"`,
+    request.user.id,
+  )
 
   const result = await Book.deleteOne({ _id: request.params.id })
 

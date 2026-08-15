@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import { z } from 'zod'
 import { Member } from '../models/member.model.js'
 import { createHttpError } from '../utils/http-error.js'
+import { createHistory } from '../utils/create-history.js'
 
 const createMemberSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -95,6 +96,14 @@ export const createMember = async (request, response) => {
         updatedBy: request.user.id,
       })
 
+      await createHistory(
+        'member',
+        'create',
+        `Menambah anggota "${member.name}"`,
+        `Added member "${member.name}"`,
+        request.user.id,
+      )
+
       await member.populate('createdBy updatedBy', 'name')
 
       return response.status(201).json({
@@ -136,6 +145,15 @@ export const updateMember = async (request, response) => {
   try {
     Object.assign(member, memberData, { updatedBy: request.user.id })
     await member.save()
+
+    await createHistory(
+      'member',
+      'update',
+      `Memperbarui anggota "${member.name}"`,
+      `Updated member "${member.name}"`,
+      request.user.id,
+    )
+
     await member.populate('createdBy updatedBy', 'name')
 
     return response.status(200).json({
@@ -152,6 +170,20 @@ export const deleteMember = async (request, response) => {
   if (!mongoose.isValidObjectId(request.params.id)) {
     throw memberNotFoundError()
   }
+
+  const member = await Member.findById(request.params.id)
+
+  if (!member) {
+    throw memberNotFoundError()
+  }
+
+  await createHistory(
+    'member',
+    'delete',
+    `Menghapus anggota "${member.name}"`,
+    `Deleted member "${member.name}"`,
+    request.user.id,
+  )
 
   const result = await Member.deleteOne({ _id: request.params.id })
 

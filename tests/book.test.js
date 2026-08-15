@@ -13,8 +13,13 @@ const bookModel = {
   findById: vi.fn(),
 }
 
+const createHistoryMock = vi.fn().mockResolvedValue({})
+
 vi.mock('../src/models/user.model.js', () => ({ User: userModel }))
 vi.mock('../src/models/book.model.js', () => ({ Book: bookModel }))
+vi.mock('../src/utils/create-history.js', () => ({
+  createHistory: createHistoryMock,
+}))
 
 const { createApp } = await import('../src/app.js')
 
@@ -123,6 +128,13 @@ describe('book endpoints', () => {
         updatedBy: user.id,
       }),
     )
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'book',
+      'create',
+      expect.any(String),
+      expect.any(String),
+      user.id,
+    )
     expect(response.body.data.book).toEqual(book)
   })
 
@@ -191,6 +203,13 @@ describe('book endpoints', () => {
     expect(book.title).toBe('New Title')
     expect(book.author).toBe('Jane Doe')
     expect(book.totalCopies).toBe(1)
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'book',
+      'update',
+      expect.any(String),
+      expect.any(String),
+      user.id,
+    )
     expect(response.body.data.book).toEqual({
       activeLoans: 0,
       author: 'Jane Doe',
@@ -255,6 +274,14 @@ describe('book endpoints', () => {
   })
 
   it('deletes a book and returns 204', async () => {
+    const book = {
+      activeLoans: 0,
+      author: 'Jane Doe',
+      id: bookId,
+      title: 'A Book',
+      totalCopies: 1,
+    }
+    bookModel.findById.mockResolvedValue(book)
     bookModel.deleteOne.mockResolvedValue({ deletedCount: 1 })
 
     const response = await request(app)
@@ -262,6 +289,14 @@ describe('book endpoints', () => {
       .set('Authorization', `Bearer ${token}`)
 
     expect(response.status).toBe(204)
+    expect(bookModel.findById).toHaveBeenCalledWith(bookId)
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'book',
+      'delete',
+      expect.any(String),
+      expect.any(String),
+      user.id,
+    )
     expect(bookModel.deleteOne).toHaveBeenCalledWith({ _id: bookId })
   })
 })

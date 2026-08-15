@@ -14,8 +14,13 @@ const memberModel = {
   findOne: vi.fn(),
 }
 
+const createHistoryMock = vi.fn().mockResolvedValue({})
+
 vi.mock('../src/models/user.model.js', () => ({ User: userModel }))
 vi.mock('../src/models/member.model.js', () => ({ Member: memberModel }))
+vi.mock('../src/utils/create-history.js', () => ({
+  createHistory: createHistoryMock,
+}))
 
 const { createApp } = await import('../src/app.js')
 
@@ -115,6 +120,13 @@ describe('member endpoints', () => {
         phone: '0812-3456-7890',
         updatedBy: user.id,
       }),
+    )
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'member',
+      'create',
+      expect.any(String),
+      expect.any(String),
+      user.id,
     )
     expect(response.body.data.member).toEqual(member)
   })
@@ -263,6 +275,13 @@ describe('member endpoints', () => {
       id: user.id,
       name: user.name,
     })
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'member',
+      'update',
+      expect.any(String),
+      expect.any(String),
+      user.id,
+    )
     expect(response.body.data.member).toEqual({
       address: 'Jl. Merdeka No. 1',
       createdAt: '2026-08-15T10:00:00.000Z',
@@ -354,6 +373,11 @@ describe('member endpoints', () => {
   })
 
   it('deletes a member and returns 204', async () => {
+    const deleteMember = {
+      id: memberId,
+      name: 'Reader',
+    }
+    memberModel.findById.mockResolvedValue(deleteMember)
     memberModel.deleteOne.mockResolvedValue({ deletedCount: 1 })
 
     const response = await request(app)
@@ -361,6 +385,14 @@ describe('member endpoints', () => {
       .set('Authorization', `Bearer ${token}`)
 
     expect(response.status).toBe(204)
+    expect(memberModel.findById).toHaveBeenCalledWith(memberId)
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'member',
+      'delete',
+      expect.any(String),
+      expect.any(String),
+      user.id,
+    )
     expect(memberModel.deleteOne).toHaveBeenCalledWith({ _id: memberId })
   })
 })

@@ -23,10 +23,15 @@ const loanModel = {
   findOneAndUpdate: vi.fn(),
 }
 
+const createHistoryMock = vi.fn().mockResolvedValue({})
+
 vi.mock('../src/models/user.model.js', () => ({ User: userModel }))
 vi.mock('../src/models/member.model.js', () => ({ Member: memberModel }))
 vi.mock('../src/models/book.model.js', () => ({ Book: bookModel }))
 vi.mock('../src/models/loan.model.js', () => ({ Loan: loanModel }))
+vi.mock('../src/utils/create-history.js', () => ({
+  createHistory: createHistoryMock,
+}))
 
 const { createApp } = await import('../src/app.js')
 
@@ -178,6 +183,13 @@ describe('loan endpoints', () => {
         updatedBy: user.id,
       }),
     )
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'loan',
+      'create',
+      expect.any(String),
+      expect.any(String),
+      user.id,
+    )
     expect(response.body.data.loan).toEqual(publicLoan)
   })
 
@@ -210,6 +222,13 @@ describe('loan endpoints', () => {
       { _id: bookId2, activeLoans: { $lt: book2.totalCopies } },
       { $inc: { activeLoans: 1 } },
       { timestamps: false },
+    )
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'loan',
+      'create',
+      expect.any(String),
+      expect.any(String),
+      user.id,
     )
     expect(response.body.data.loan.books).toEqual([book, book2])
   })
@@ -355,6 +374,13 @@ describe('loan endpoints', () => {
       { _id: bookId, activeLoans: { $gt: 0 } },
       { $inc: { activeLoans: -1 } },
       { timestamps: false },
+    )
+    expect(createHistoryMock).toHaveBeenCalledWith(
+      'loan',
+      'return',
+      expect.any(String),
+      expect.any(String),
+      user.id,
     )
     expect(response.body.data.loan).toEqual({
       ...publicLoan,
