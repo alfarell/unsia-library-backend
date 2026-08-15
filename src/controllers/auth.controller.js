@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import { env } from '../config/env.js'
 import { User } from '../models/user.model.js'
+import { createHttpError } from '../utils/http-error.js'
 
 const credentialsSchema = z.object({
   email: z
@@ -30,9 +31,6 @@ const toPublicUser = (user) => ({
 
 const createToken = (user) =>
   jwt.sign({ sub: user.id }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN })
-
-const createHttpError = (status, code, message) =>
-  Object.assign(new Error(message), { code, status })
 
 export const register = async (request, response) => {
   const { email, name, password } = registerSchema.parse(request.body)
