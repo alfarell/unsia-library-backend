@@ -12,6 +12,7 @@ const objectIdSchema = z
   })
 
 const createLoanSchema = z.object({
+  durationDays: z.number().int().min(1).max(365),
   memberId: objectIdSchema,
   bookIds: z
     .array(objectIdSchema)
@@ -35,10 +36,12 @@ const toPublicLoan = (loan) => ({
         }
       : null,
   ),
+  borrowedAt: loan.borrowedAt,
   createdAt: loan.createdAt,
   createdBy: loan.createdBy
     ? { id: loan.createdBy.id, name: loan.createdBy.name }
     : null,
+  durationDays: loan.durationDays,
   id: loan.id,
   member: loan.member
     ? {
@@ -47,6 +50,7 @@ const toPublicLoan = (loan) => ({
         name: loan.member.name,
       }
     : null,
+  returnedAt: loan.returnedAt,
   status: loan.status,
   updatedAt: loan.updatedAt,
   updatedBy: loan.updatedBy
@@ -93,7 +97,9 @@ export const listLoans = async (request, response) => {
 }
 
 export const createLoan = async (request, response) => {
-  const { memberId, bookIds } = createLoanSchema.parse(request.body)
+  const { durationDays, memberId, bookIds } = createLoanSchema.parse(
+    request.body,
+  )
 
   const member = await Member.findById(memberId)
 
@@ -119,6 +125,7 @@ export const createLoan = async (request, response) => {
     const updatedBook = await Book.findOneAndUpdate(
       { _id: book.id, activeLoans: { $lt: book.totalCopies } },
       { $inc: { activeLoans: 1 } },
+      { timestamps: false },
     )
 
     if (!updatedBook) {
@@ -126,6 +133,7 @@ export const createLoan = async (request, response) => {
         await Book.updateOne(
           { _id: incrementedBookId },
           { $inc: { activeLoans: -1 } },
+          { timestamps: false },
         )
       }
 
@@ -136,10 +144,11 @@ export const createLoan = async (request, response) => {
   }
 
   const loan = await Loan.create({
-    member: memberId,
     books: bookIds,
-    status: 'borrowed',
     createdBy: request.user.id,
+    durationDays,
+    member: memberId,
+    status: 'borrowed',
     updatedBy: request.user.id,
   })
 
@@ -159,7 +168,13 @@ export const returnLoan = async (request, response) => {
 
   const loan = await Loan.findOneAndUpdate(
     { _id: request.params.id, status: 'borrowed' },
-    { $set: { status: 'returned', updatedBy: request.user.id } },
+    {
+      $set: {
+        returnedAt: new Date(),
+        status: 'returned',
+        updatedBy: request.user.id,
+      },
+    },
     { new: true },
   )
 
@@ -177,6 +192,7 @@ export const returnLoan = async (request, response) => {
     const result = await Book.updateOne(
       { _id: bookId, activeLoans: { $gt: 0 } },
       { $inc: { activeLoans: -1 } },
+      { timestamps: false },
     )
 
     if (result.modifiedCount === 0) {

@@ -27,6 +27,20 @@ const loanSchema = new mongoose.Schema(
       required: true,
       type: String,
     },
+    durationDays: {
+      max: 365,
+      min: 1,
+      required: true,
+      type: Number,
+    },
+    borrowedAt: {
+      default: Date.now,
+      type: Date,
+    },
+    returnedAt: {
+      default: null,
+      type: Date,
+    },
     createdBy: {
       ref: 'User',
       required: true,

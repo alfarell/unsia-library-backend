@@ -68,10 +68,13 @@ const book2 = {
 
 const populatedLoan = {
   books: [book],
+  borrowedAt: '2026-08-15T10:00:00.000Z',
   createdAt: '2026-08-15T10:00:00.000Z',
   createdBy: { id: user.id, name: user.name },
+  durationDays: 7,
   id: loanId,
   member,
+  returnedAt: null,
   status: 'borrowed',
   updatedAt: '2026-08-15T10:00:00.000Z',
   updatedBy: { id: user.id, name: user.name },
@@ -88,10 +91,13 @@ const publicLoan = {
       totalCopies: book.totalCopies,
     },
   ],
+  borrowedAt: populatedLoan.borrowedAt,
   createdAt: populatedLoan.createdAt,
   createdBy: { id: user.id, name: user.name },
+  durationDays: 7,
   id: loanId,
   member: { id: memberId, membershipCode: 'UNSIA00001', name: 'Reader' },
+  returnedAt: null,
   status: 'borrowed',
   updatedAt: populatedLoan.updatedAt,
   updatedBy: { id: user.id, name: user.name },
@@ -108,7 +114,7 @@ describe('loan endpoints', () => {
       request(app).get('/api/loans'),
       request(app)
         .post('/api/loans')
-        .send({ memberId, bookIds: [bookId] }),
+        .send({ durationDays: 7, memberId, bookIds: [bookId] }),
       request(app).put(`/api/loans/${loanId}/return`),
     ]
 
@@ -152,7 +158,7 @@ describe('loan endpoints', () => {
     const response = await request(app)
       .post('/api/loans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ memberId, bookIds: [bookId] })
+      .send({ durationDays: 7, memberId, bookIds: [bookId] })
 
     expect(response.status).toBe(201)
     expect(memberModel.findById).toHaveBeenCalledWith(memberId)
@@ -160,11 +166,13 @@ describe('loan endpoints', () => {
     expect(bookModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: bookId, activeLoans: { $lt: book.totalCopies } },
       { $inc: { activeLoans: 1 } },
+      { timestamps: false },
     )
     expect(loanModel.create).toHaveBeenCalledWith(
       expect.objectContaining({
         books: [bookId],
         createdBy: user.id,
+        durationDays: 7,
         member: memberId,
         status: 'borrowed',
         updatedBy: user.id,
@@ -189,26 +197,49 @@ describe('loan endpoints', () => {
     const response = await request(app)
       .post('/api/loans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ memberId, bookIds: [bookId, bookId2] })
+      .send({ durationDays: 7, memberId, bookIds: [bookId, bookId2] })
 
     expect(response.status).toBe(201)
     expect(bookModel.findOneAndUpdate).toHaveBeenCalledTimes(2)
     expect(bookModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: bookId, activeLoans: { $lt: book.totalCopies } },
       { $inc: { activeLoans: 1 } },
+      { timestamps: false },
     )
     expect(bookModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: bookId2, activeLoans: { $lt: book2.totalCopies } },
       { $inc: { activeLoans: 1 } },
+      { timestamps: false },
     )
     expect(response.body.data.loan.books).toEqual([book, book2])
   })
 
   it('rejects duplicate, empty, or invalid bookIds', async () => {
     const requests = [
-      { memberId, bookIds: [bookId, bookId] },
-      { memberId, bookIds: [] },
-      { memberId, bookIds: ['not-an-object-id'] },
+      { durationDays: 7, memberId, bookIds: [bookId, bookId] },
+      { durationDays: 7, memberId, bookIds: [] },
+      { durationDays: 7, memberId, bookIds: ['not-an-object-id'] },
+    ]
+
+    for (const payload of requests) {
+      const response = await request(app)
+        .post('/api/loans')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+
+      expect(response.status).toBe(400)
+      expect(response.body.error.code).toBe('VALIDATION_ERROR')
+    }
+
+    expect(memberModel.findById).not.toHaveBeenCalled()
+  })
+
+  it('rejects missing or invalid durationDays', async () => {
+    const requests = [
+      { memberId, bookIds: [bookId] },
+      { durationDays: 0, memberId, bookIds: [bookId] },
+      { durationDays: 1.5, memberId, bookIds: [bookId] },
+      { durationDays: 366, memberId, bookIds: [bookId] },
     ]
 
     for (const payload of requests) {
@@ -230,7 +261,7 @@ describe('loan endpoints', () => {
     const response = await request(app)
       .post('/api/loans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ memberId, bookIds: [bookId] })
+      .send({ durationDays: 7, memberId, bookIds: [bookId] })
 
     expect(response.status).toBe(404)
     expect(response.body.error.code).toBe('MEMBER_NOT_FOUND')
@@ -243,7 +274,7 @@ describe('loan endpoints', () => {
     const response = await request(app)
       .post('/api/loans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ memberId, bookIds: [bookId] })
+      .send({ durationDays: 7, memberId, bookIds: [bookId] })
 
     expect(response.status).toBe(404)
     expect(response.body.error.code).toBe('BOOK_NOT_FOUND')
@@ -262,7 +293,7 @@ describe('loan endpoints', () => {
     const response = await request(app)
       .post('/api/loans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ memberId, bookIds: [bookId, bookId2] })
+      .send({ durationDays: 7, memberId, bookIds: [bookId, bookId2] })
 
     expect(response.status).toBe(400)
     expect(response.body.error.code).toBe('BOOK_OUT_OF_STOCK')
@@ -270,10 +301,12 @@ describe('loan endpoints', () => {
     expect(bookModel.updateOne).toHaveBeenCalledWith(
       { _id: bookId },
       { $inc: { activeLoans: -1 } },
+      { timestamps: false },
     )
     expect(bookModel.updateOne).not.toHaveBeenCalledWith(
       { _id: bookId2 },
       { $inc: { activeLoans: -1 } },
+      { timestamps: false },
     )
     expect(loanModel.create).not.toHaveBeenCalled()
   })
@@ -281,9 +314,12 @@ describe('loan endpoints', () => {
   it('returns a loan and decrements activeLoans', async () => {
     const loan = {
       books: [bookId],
+      borrowedAt: populatedLoan.borrowedAt,
       createdAt: populatedLoan.createdAt,
+      durationDays: 7,
       id: loanId,
       member: memberId,
+      returnedAt: new Date('2026-08-15T12:00:00.000Z'),
       status: 'returned',
       updatedAt: populatedLoan.updatedAt,
       updatedBy: user.id,
@@ -306,15 +342,23 @@ describe('loan endpoints', () => {
     expect(response.status).toBe(200)
     expect(loanModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: loanId, status: 'borrowed' },
-      { $set: { status: 'returned', updatedBy: user.id } },
+      {
+        $set: {
+          returnedAt: expect.any(Date),
+          status: 'returned',
+          updatedBy: user.id,
+        },
+      },
       { new: true },
     )
     expect(bookModel.updateOne).toHaveBeenCalledWith(
       { _id: bookId, activeLoans: { $gt: 0 } },
       { $inc: { activeLoans: -1 } },
+      { timestamps: false },
     )
     expect(response.body.data.loan).toEqual({
       ...publicLoan,
+      returnedAt: '2026-08-15T12:00:00.000Z',
       status: 'returned',
     })
   })
@@ -372,6 +416,7 @@ describe('loan endpoints', () => {
     expect(bookModel.updateOne).toHaveBeenCalledWith(
       { _id: bookId, activeLoans: { $gt: 0 } },
       { $inc: { activeLoans: -1 } },
+      { timestamps: false },
     )
   })
 
