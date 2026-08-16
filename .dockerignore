@@ -1,0 +1,12 @@
+.git
+.gitignore
+.husky
+.env
+.env.*
+!.env.example
+node_modules
+coverage
+graphify-out
+tests
+npm-debug.log*
+README.md

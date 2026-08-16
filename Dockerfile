@@ -1,7 +1,16 @@
 FROM node:24-alpine
+
 WORKDIR /app
+
+ENV NODE_ENV=production
+
 COPY package*.json ./
-RUN npm install --production
-COPY . .
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --chown=node:node src ./src
+
+USER node
+
 EXPOSE 3000
-CMD ["node", "index.js"]
+
+CMD ["npm", "start"]
